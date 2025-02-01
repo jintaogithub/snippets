@@ -1,0 +1,5 @@
+A simple Linux kernel module
+- create a kernel thread
+- printk periodically
+
+To build, run make and follow instructions
