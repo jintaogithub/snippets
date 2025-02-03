@@ -18,9 +18,9 @@ uint64_t now_timeticks_usec() {
 }
 
 // Function that each thread will execute
-void atomic_thread_func(int threadId, int iterations) {
+void atomic_thread_func(int threadId, uint64_t iterations) {
   uint64_t start = now_timeticks_usec();
-  for (int i = 0; i < iterations; ++i) {
+  for (uint64_t i = 0; i < iterations; ++i) {
     sum += 1;
   }
   uint64_t end = now_timeticks_usec();
@@ -28,11 +28,11 @@ void atomic_thread_func(int threadId, int iterations) {
   avg_per_iteration_time_nsec[threadId] = (end - start) * 1e3 / iterations;
 }
 
-void mutex_thread_func(int threadId, int iterations) {
+void mutex_thread_func(int threadId, uint64_t iterations) {
   uint64_t local_sum = 0;
 
   uint64_t start = now_timeticks_usec();
-  for (int i = 0; i < iterations; ++i) {
+  for (uint64_t i = 0; i < iterations; ++i) {
     local_sum += 1;
   }
   uint64_t end = now_timeticks_usec();
@@ -43,9 +43,9 @@ void mutex_thread_func(int threadId, int iterations) {
   sum += local_sum;
 }
 
-void naive_mutex_thread_func(int threadId, int iterations) {
+void naive_mutex_thread_func(int threadId, uint64_t iterations) {
   uint64_t start = now_timeticks_usec();
-  for (int i = 0; i < iterations; ++i) {
+  for (uint64_t i = 0; i < iterations; ++i) {
     std::lock_guard<std::mutex> l(mtx);
     relax_sum += 1;
   }
@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  int iterations = std::stoi(argv[1]);
+  uint64_t iterations = std::stoull(argv[1]);
   int num_threads = std::stoi(argv[2]);
   int mode = std::stoi(argv[3]);
 
