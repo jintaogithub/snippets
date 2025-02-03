@@ -1,3 +1,6 @@
+#include <pthread.h>
+#include <unistd.h>
+
 #include <atomic>
 #include <iostream>
 #include <mutex>
@@ -8,6 +11,7 @@
 std::atomic<uint64_t> sum(0);
 std::mutex mtx;
 uint64_t relax_sum = 0;
+int nproc;
 
 uint64_t* avg_per_iteration_time_nsec;
 
@@ -18,7 +22,21 @@ uint64_t now_timeticks_usec() {
 }
 
 // Function that each thread will execute
-void atomic_thread_func(int threadId, uint64_t iterations) {
+void atomic_thread_func(int threadId, uint64_t iterations, int core_id) {
+  // --- Set CPU Affinity ---
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);                          // Clear the CPU set
+  CPU_SET(core_id, &cpuset);                  // Add the desired core to the set
+  pthread_t current_thread = pthread_self();  // Get current thread ID
+  int result =
+      pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
+  if (result != 0) {
+    std::cerr << "Error setting thread affinity for thread " << threadId
+              << " to core " << core_id << ": errno = " << result << "\n";
+    return;
+  }
+  std::cerr << "Thread " << threadId << " running on core " << core_id << "\n";
+
   uint64_t start = now_timeticks_usec();
   for (uint64_t i = 0; i < iterations; ++i) {
     sum += 1;
@@ -28,7 +46,21 @@ void atomic_thread_func(int threadId, uint64_t iterations) {
   avg_per_iteration_time_nsec[threadId] = (end - start) * 1e3 / iterations;
 }
 
-void mutex_thread_func(int threadId, uint64_t iterations) {
+void mutex_thread_func(int threadId, uint64_t iterations, int core_id) {
+  // --- Set CPU Affinity ---
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);                          // Clear the CPU set
+  CPU_SET(core_id, &cpuset);                  // Add the desired core to the set
+  pthread_t current_thread = pthread_self();  // Get current thread ID
+  int result =
+      pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
+  if (result != 0) {
+    std::cerr << "Error setting thread affinity for thread " << threadId
+              << " to core " << core_id << ": errno = " << result << "\n";
+    return;
+  }
+  std::cerr << "Thread " << threadId << " running on core " << core_id << "\n";
+
   uint64_t local_sum = 0;
 
   uint64_t start = now_timeticks_usec();
@@ -43,7 +75,21 @@ void mutex_thread_func(int threadId, uint64_t iterations) {
   sum += local_sum;
 }
 
-void naive_mutex_thread_func(int threadId, uint64_t iterations) {
+void naive_mutex_thread_func(int threadId, uint64_t iterations, int core_id) {
+  // --- Set CPU Affinity ---
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);                          // Clear the CPU set
+  CPU_SET(core_id, &cpuset);                  // Add the desired core to the set
+  pthread_t current_thread = pthread_self();  // Get current thread ID
+  int result =
+      pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
+  if (result != 0) {
+    std::cerr << "Error setting thread affinity for thread " << threadId
+              << " to core " << core_id << ": errno = " << result << "\n";
+    return;
+  }
+  std::cerr << "Thread " << threadId << " running on core " << core_id << "\n";
+
   uint64_t start = now_timeticks_usec();
   for (uint64_t i = 0; i < iterations; ++i) {
     std::lock_guard<std::mutex> l(mtx);
@@ -90,6 +136,10 @@ int main(int argc, char* argv[]) {
             << " mode: threads - " << num_threads << ", iterations - "
             << iterations << std::endl;
 
+  // Get the number of available processors
+  int nproc = sysconf(_SC_NPROCESSORS_ONLN);
+  std::cerr << "Number of available processors: " << nproc << std::endl;
+
   std::vector<std::thread> threads;
   threads.reserve(num_threads);
 
@@ -99,11 +149,11 @@ int main(int argc, char* argv[]) {
   // Create and start the threads
   for (int i = 0; i < num_threads; ++i) {
     if (mode == 0) {
-      threads.emplace_back(mutex_thread_func, i, iterations);
+      threads.emplace_back(mutex_thread_func, i, iterations, i % nproc);
     } else if (mode == 1) {
-      threads.emplace_back(atomic_thread_func, i, iterations);
+      threads.emplace_back(atomic_thread_func, i, iterations, i % nproc);
     } else {
-      threads.emplace_back(naive_mutex_thread_func, i, iterations);
+      threads.emplace_back(naive_mutex_thread_func, i, iterations, i % nproc);
     }
   }
 
