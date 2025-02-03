@@ -148,12 +148,14 @@ int main(int argc, char* argv[]) {
 
   // Create and start the threads
   for (int i = 0; i < num_threads; ++i) {
+    int core_id = i % nproc;
+    // int core_id = (i + nproc - 1) % nproc;
     if (mode == 0) {
-      threads.emplace_back(mutex_thread_func, i, iterations, i % nproc);
+      threads.emplace_back(mutex_thread_func, i, iterations, core_id);
     } else if (mode == 1) {
-      threads.emplace_back(atomic_thread_func, i, iterations, i % nproc);
+      threads.emplace_back(atomic_thread_func, i, iterations, core_id);
     } else {
-      threads.emplace_back(naive_mutex_thread_func, i, iterations, i % nproc);
+      threads.emplace_back(naive_mutex_thread_func, i, iterations, core_id);
     }
   }
 
